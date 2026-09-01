@@ -1,5 +1,9 @@
 # Contributing
 
+> **Note:** this repository is a public mirror of a private upstream where day-to-day
+> development happens. PRs are welcome — they are reviewed here, applied upstream, and
+> land back in the next sync commit (you keep authorship credit in the PR).
+
 ## Dev setup
 
 ```bash

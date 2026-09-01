@@ -1,0 +1,42 @@
+# ============================================
+# TestPilot base image — Python 3.11 + all deps + Playwright/Chromium + OS libs
+# ============================================
+# Built separately; the main Dockerfile uses it as BASE_IMAGE and only layers
+# app code + built frontend on top, so it installs NOTHING — app builds are
+# "pull base + COPY" (fast).
+#
+# Every Python dependency (from pyproject.toml) AND the Playwright Chromium
+# browser + its runtime OS libs live here. A NEW Python dependency (edit
+# pyproject.toml) means rebuilding this base; do NOT add a `pip install`
+# to the main Dockerfile.
+#
+# Build:  docker build -f Dockerfile.base -t testpilot-base:latest .
+# ============================================
+
+FROM python:3.11-slim
+
+# uv + curl (curl is used by the compose healthcheck).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl ca-certificates \
+    && curl -LsSf https://astral.sh/uv/install.sh | sh \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV PATH="/root/.local/bin:$PATH" \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+# On networks where the Playwright CDN is slow, set a mirror, e.g.:
+#   ENV PLAYWRIGHT_DOWNLOAD_HOST=https://cdn.npmmirror.com/binaries/playwright
+
+WORKDIR /app
+
+# Python deps straight from pyproject.toml (installs [project.dependencies],
+# including browser-use[video] + playwright + celery/redis). Only pyproject is
+# copied, so app-code changes never invalidate this layer.
+COPY pyproject.toml ./
+RUN uv pip install --system --no-cache -r pyproject.toml
+
+# Chromium + its OS dependencies, into a world-readable path so the non-root
+# runtime user can launch it. --with-deps installs the apt libs Chromium needs.
+RUN playwright install --with-deps chromium \
+    && chmod -R a+rX /ms-playwright
+
+CMD ["python3"]

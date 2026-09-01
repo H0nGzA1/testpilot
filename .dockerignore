@@ -1,0 +1,29 @@
+# --- python ---
+__pycache__
+*.py[cod]
+.venv
+venv
+*.egg-info
+.pytest_cache
+.ruff_cache
+.coverage
+
+# --- secrets / local state (never bake into an image) ---
+.env
+.env.*
+!.env.example
+auth.json
+*.db
+artifacts/
+
+# --- frontend (source is copied in the build stage; these are rebuilt/huge) ---
+web/node_modules
+web/dist
+
+# --- repo cruft ---
+.git
+.gitignore
+.DS_Store
+tests
+*.md
+!README.md

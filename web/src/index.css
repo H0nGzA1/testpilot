@@ -1,0 +1,172 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---- theme tokens (light default; dark via [data-theme=dark] or system) ---- */
+:root {
+  color-scheme: light;
+  /* brand accent hue — a preset theme only overrides this (see [data-accent] below);
+     the whole brand-* ramp is built from it and works in both light + dark */
+  --brand-h: 163; /* emerald (default) */
+  --surface: oklch(0.985 0.004 250);
+  --panel: oklch(0.995 0.002 250);
+  --panel2: oklch(0.965 0.004 250);
+  --line: oklch(0.92 0.006 250);
+  --text: oklch(0.23 0.02 250);
+  --muted: oklch(0.55 0.015 250);
+  --ink-900: oklch(0.23 0.02 250);
+  --ink-700: oklch(0.4 0.02 250);
+  --ink-500: oklch(0.55 0.015 250);
+  --brand-50: oklch(0.95 0.038 var(--brand-h));
+  --brand-100: oklch(0.88 0.07 var(--brand-h));
+  --brand-500: oklch(0.7 0.15 var(--brand-h));
+  --brand-600: oklch(0.64 0.16 var(--brand-h));
+  --brand-700: oklch(0.56 0.15 var(--brand-h));
+  --on-brand: oklch(0.99 0.01 var(--brand-h));
+  --ok-bg: oklch(0.94 0.05 150);
+  --ok-fg: oklch(0.42 0.14 150);
+  --bad-bg: oklch(0.95 0.05 25);
+  --bad-fg: oklch(0.5 0.2 25);
+  --warn-bg: oklch(0.95 0.06 80);
+  --warn-fg: oklch(0.48 0.13 70);
+}
+
+/* dark values, shared by explicit choice and system preference */
+/* any element with data-theme=dark scopes the dark tokens (used to force the
+   login scene dark regardless of the app theme) */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --surface: oklch(0.16 0.008 250);
+  --panel: oklch(0.19 0.008 250);
+  --panel2: oklch(0.23 0.009 250);
+  --line: oklch(0.29 0.01 250);
+  --text: oklch(0.95 0.006 250);
+  --muted: oklch(0.68 0.012 250);
+  --ink-900: oklch(0.96 0.006 250);
+  --ink-700: oklch(0.8 0.012 250);
+  --ink-500: oklch(0.66 0.014 250);
+  --brand-50: oklch(0.33 0.05 var(--brand-h));
+  --brand-100: oklch(0.41 0.07 var(--brand-h));
+  --brand-500: oklch(0.72 0.15 var(--brand-h));
+  --brand-600: oklch(0.7 0.15 var(--brand-h));
+  --brand-700: oklch(0.8 0.13 var(--brand-h));
+  --on-brand: oklch(0.18 0.03 var(--brand-h));
+  --ok-bg: oklch(0.29 0.07 150);
+  --ok-fg: oklch(0.86 0.15 150);
+  --bad-bg: oklch(0.29 0.09 25);
+  --bad-fg: oklch(0.83 0.15 25);
+  --warn-bg: oklch(0.3 0.07 70);
+  --warn-fg: oklch(0.86 0.13 80);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    color-scheme: dark;
+    --surface: oklch(0.16 0.008 250);
+    --panel: oklch(0.19 0.008 250);
+    --panel2: oklch(0.23 0.009 250);
+    --line: oklch(0.29 0.01 250);
+    --text: oklch(0.95 0.006 250);
+    --muted: oklch(0.68 0.012 250);
+    --ink-900: oklch(0.96 0.006 250);
+    --ink-700: oklch(0.8 0.012 250);
+    --ink-500: oklch(0.66 0.014 250);
+    --brand-50: oklch(0.33 0.05 var(--brand-h));
+    --brand-100: oklch(0.41 0.07 var(--brand-h));
+    --brand-500: oklch(0.72 0.15 var(--brand-h));
+    --brand-600: oklch(0.7 0.15 var(--brand-h));
+    --brand-700: oklch(0.8 0.13 var(--brand-h));
+    --on-brand: oklch(0.18 0.03 var(--brand-h));
+    --ok-bg: oklch(0.29 0.07 150);
+    --ok-fg: oklch(0.86 0.15 150);
+    --bad-bg: oklch(0.29 0.09 25);
+    --bad-fg: oklch(0.83 0.15 25);
+    --warn-bg: oklch(0.3 0.07 70);
+    --warn-fg: oklch(0.86 0.13 80);
+  }
+}
+
+/* ---- preset accent themes — override only the brand hue (applies to both modes) ---- */
+[data-accent="emerald"] { --brand-h: 163; }
+[data-accent="blue"] { --brand-h: 250; }
+[data-accent="violet"] { --brand-h: 292; }
+[data-accent="amber"] { --brand-h: 70; }
+[data-accent="rose"] { --brand-h: 18; }
+
+body {
+  background: var(--surface);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC", sans-serif;
+}
+
+h1 {
+  letter-spacing: -0.01em;
+}
+
+/* modal motion: fade the backdrop, pop the dialog (ease-out, no bounce) */
+@keyframes tp-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes tp-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes tp-overlay-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes tp-pop-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+.tp-overlay {
+  animation: tp-overlay-in 0.15s ease-out both;
+}
+.tp-pop {
+  animation: tp-pop-in 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.tp-overlay-out {
+  animation: tp-overlay-out 0.14s ease-in both;
+}
+.tp-pop-out {
+  animation: tp-pop-out 0.14s ease-in both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tp-overlay,
+  .tp-pop,
+  .tp-overlay-out,
+  .tp-pop-out {
+    animation: none;
+  }
+}
+
+/* indeterminate progress bar (capture modal) */
+@keyframes tp-indeterminate { from { transform: translateX(-120%); } to { transform: translateX(320%); } }
+.tp-indeterminate { animation: tp-indeterminate 1.3s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+
+/* toast slide-in */
+@keyframes toast-in { from { opacity: 0; transform: translateX(1rem) scale(0.98); } to { opacity: 1; transform: none; } }
+.toast-in { animation: toast-in 0.18s cubic-bezier(0.16, 1, 0.3, 1) both; }
+@media (prefers-reduced-motion: reduce) { .toast-in { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .tp-indeterminate { animation: none; } }

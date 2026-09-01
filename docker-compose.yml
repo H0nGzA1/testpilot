@@ -1,0 +1,145 @@
+# TestPilot full stack: Postgres + Redis + API (serves SPA + REST/SSE) +
+# Celery worker (runs test cases as browsers + GitLab issue sync) + beat.
+# Config comes from .env (see .env.example). One image (built once) runs
+# api/worker/beat via different CMDs.
+#
+# Global browser budget = the worker's --concurrency (each case == one browser).
+# Set MAX_GLOBAL_CONCURRENCY in .env; ~0.5 GB RAM per slot (default 16 ≈ 8 GB).
+#
+#   docker build -f Dockerfile.base -t testpilot-base:latest .   # once (deps + Chromium)
+#   docker compose build          # builds the app image on top of the base
+#   docker compose up -d
+#   open http://localhost:8000
+
+x-app: &app
+  image: testpilot:latest
+  build:
+    context: .
+    dockerfile: Dockerfile
+  env_file: .env
+  environment:
+    - DATABASE_URL=postgresql+asyncpg://testpilot:${POSTGRES_PASSWORD:-testpilot}@db:5432/testpilot
+    - REDIS_URL=redis://redis:6379/0
+    - ARTIFACT_DIR=/app/artifacts
+    - ANONYMIZED_TELEMETRY=false  # browser-use telemetry -> no outbound in the container
+  volumes:
+    - artifacts:/app/artifacts
+  # If the app under test lives on an internal domain, point the containers at a
+  # resolver that can answer for it, e.g.:
+  #   dns: ["10.0.0.2", "8.8.8.8"]
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  restart: unless-stopped
+  networks: [tp-net]
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=testpilot
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-testpilot}
+      - POSTGRES_DB=testpilot
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testpilot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks: [tp-net]
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks: [tp-net]
+
+  api:
+    <<: *app
+    container_name: testpilot-api
+    ports:
+      - "8000:8000"
+    # entrypoint runs `alembic upgrade head` (RUN_MIGRATIONS defaults to 1)
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  worker:
+    <<: *app
+    container_name: testpilot-worker
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://testpilot:${POSTGRES_PASSWORD:-testpilot}@db:5432/testpilot
+      - REDIS_URL=redis://redis:6379/0
+      - RUN_MIGRATIONS=0
+      - ARTIFACT_DIR=/app/artifacts  # runs write video/history here (shared volume)
+      - ANONYMIZED_TELEMETRY=false  # browser-use telemetry -> no outbound in the container
+    # each case == one browser, so --concurrency IS the global browser budget
+    command: ["celery", "-A", "app.celery_app.celery", "worker", "-l", "info", "--concurrency=${MAX_GLOBAL_CONCURRENCY:-16}"]
+    # SIGTERM starts a celery warm shutdown, which waits for the cases it is running.
+    # Docker's default 10s then SIGKILLs them: a deploy mid-run silently dropped six cases
+    # of run 44 (they are acked already, so nothing redelivers them). Long enough for a
+    # case to hit its timeout; `docker compose up -d` will wait that long during a run.
+    stop_grace_period: 12m
+    # celery process serves no HTTP — disable the image's curl :8000 healthcheck
+    healthcheck:
+      disable: true
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_started
+
+  beat:
+    <<: *app
+    container_name: testpilot-beat
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://testpilot:${POSTGRES_PASSWORD:-testpilot}@db:5432/testpilot
+      - REDIS_URL=redis://redis:6379/0
+      - RUN_MIGRATIONS=0
+    command: ["celery", "-A", "app.celery_app.celery", "beat", "-l", "info"]
+    healthcheck:
+      disable: true
+    depends_on:
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_started
+
+  # Feishu bot: long-connection (WebSocket) event worker. Dials OUT to Feishu —
+  # no public callback URL. Needs internet egress to open.feishu.cn. Waits until
+  # the bot is configured (System settings / env) before connecting.
+  feishu:
+    <<: *app
+    container_name: testpilot-feishu
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://testpilot:${POSTGRES_PASSWORD:-testpilot}@db:5432/testpilot
+      - RUN_MIGRATIONS=0
+    command: ["python", "-m", "app.feishu_ws"]
+    healthcheck:
+      disable: true
+    depends_on:
+      db:
+        condition: service_healthy
+      api:
+        condition: service_started
+
+volumes:
+  pgdata:
+  artifacts:
+
+networks:
+  tp-net:
+    driver: bridge

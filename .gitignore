@@ -1,0 +1,21 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.env.*
+!.env.example
+*.db
+artifacts/
+auth.json
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.DS_Store
+
+web/node_modules/
+web/dist/
+web/tsconfig.tsbuildinfo
+
+*.png
+# but keep app icons served by the web app
+!web/public/*.png

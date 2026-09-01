@@ -17,8 +17,7 @@ import logging
 
 from sqlalchemy import func, select
 
-from app.config import get_settings
-from app.llm import openai_client
+from app.llm import llm_config, openai_client
 from app.models import Issue, Run, TestCase
 
 log = logging.getLogger("testpilot.feishu.agent")
@@ -151,8 +150,8 @@ async def _exec_tool(session, project_id: int | None, name: str, args: dict) -> 
 
 async def agent_reply(session, text: str, context: str, project_id: int | None) -> str:
     """Run a bounded tool-calling loop and return the reply text."""
-    client = openai_client()
-    model = get_settings().gateway_model
+    client = await openai_client()
+    model = (await llm_config()).model
     ctx = f"【最近群聊】\n{context}\n\n" if context else ""
     proj = f"当前项目 id={project_id}。" if project_id is not None else "尚未确定所属项目。"
     messages: list = [

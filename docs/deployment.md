@@ -10,8 +10,8 @@ One image runs every process; docker-compose starts the full stack:
 | `redis` | Redis 7 (Celery broker) |
 | `api` | FastAPI — REST + SSE + serves the built SPA at `/`. Runs `alembic upgrade head` on start. |
 | `worker` | Celery worker — executes test cases (each case = one Chromium) and GitLab sync tasks |
-| `beat` | Celery beat — polls GitLab for issue changes |
-| `feishu` | Feishu bot long-connection worker (dials **out** to Feishu — no public callback URL needed). Idle until the bot is configured. |
+| `beat` | Celery beat — suite reminders, stale-run reconcile, GitLab polling (when enabled) |
+| `feishu` | Feishu bot long-connection worker (dials **out** to Feishu — no public callback URL needed). Idle unless `ENABLE_FEISHU=true` and the bot is configured; safe to delete the service otherwise. |
 
 ## Image layout (two layers)
 

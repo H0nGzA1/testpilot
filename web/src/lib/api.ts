@@ -112,6 +112,20 @@ export interface FeedbackItem {
   created_at: string | null;
 }
 
+export interface LlmStatus {
+  base_url: string;
+  model: string;
+  agent_model: string;
+  api_key_set: boolean;
+}
+
+export interface LlmSettingsIn {
+  base_url?: string; // "" clears the override (falls back to env)
+  model?: string;
+  agent_model?: string;
+  api_key?: string; // blank keeps the stored key
+}
+
 export interface FeishuStatus {
   app_id: string;
   app_secret_set: boolean;
@@ -451,7 +465,13 @@ export const api = {
 
   // --- auth ---
   config: () =>
-    req<{ auth_enabled: boolean; shared_workspace: boolean; public_base_url: string }>("/config"),
+    req<{
+      auth_enabled: boolean;
+      shared_workspace: boolean;
+      public_base_url: string;
+      gitlab_enabled: boolean;
+      feishu_enabled: boolean;
+    }>("/config"),
   me: () => req<AuthUser | null>("/auth/me"),
   login: (email: string, password: string) =>
     req<AuthUser>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
@@ -473,12 +493,14 @@ export const api = {
   updateUser: (uid: number, b: { is_active?: boolean; is_admin?: boolean }) =>
     req<AdminUser>(`/admin/users/${uid}`, { method: "PATCH", body: JSON.stringify(b) }),
   getAdminSettings: () =>
-    req<{ gitlab_token_set: boolean; feishu: FeishuStatus }>("/admin/settings"),
+    req<{ llm: LlmStatus; gitlab_token_set: boolean; feishu: FeishuStatus }>("/admin/settings"),
   setGitlabToken: (token: string) =>
     req<{ gitlab_token_set: boolean }>("/admin/settings/gitlab-token", {
       method: "PUT",
       body: JSON.stringify({ token }),
     }),
+  setLlmSettings: (b: LlmSettingsIn) =>
+    req<LlmStatus>("/admin/settings/llm", { method: "PUT", body: JSON.stringify(b) }),
   setFeishuSettings: (b: FeishuSettingsIn) =>
     req<FeishuStatus>("/admin/settings/feishu", { method: "PUT", body: JSON.stringify(b) }),
 

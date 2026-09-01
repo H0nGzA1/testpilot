@@ -26,7 +26,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.config import get_settings
 from app.feishu_cards import confirm_run_card
-from app.llm import openai_client
+from app.llm import llm_config, openai_client
 from app.models import FeedbackItem, Issue, Project, Run, TestCase
 from app.settings_store import get_setting, set_setting
 
@@ -40,8 +40,19 @@ async def resolve_config(session) -> dict:
 
     Lets the bot be configured from System settings (secrets encrypted at rest)
     without a redeploy, while keeping .env as the fallback.
+
+    ENABLE_FEISHU=false returns an unconfigured config — the single choke point
+    every Feishu path (notify, ws worker, webhook) already no-ops on.
     """
     s = get_settings()
+    if not s.enable_feishu:
+        return {
+            "app_id": "",
+            "app_secret": "",
+            "verification_token": "",
+            "api_base": s.feishu_api_base,
+            "auto_answer_detected": False,
+        }
 
     async def sv(key: str, default: str) -> str:
         v = await get_setting(session, f"feishu_{key}")
@@ -536,9 +547,9 @@ async def _classify(
         )
         project_hint = f"项目清单:\n{project_lines}"
     ctx = f"\n\n【群里最近对话,供理解上下文,最后一条即本条】\n{context}" if context else ""
-    s = get_settings()
-    resp = await openai_client().chat.completions.create(
-        model=s.gateway_model,
+    client = await openai_client()
+    resp = await client.chat.completions.create(
+        model=(await llm_config()).model,
         temperature=0.2,
         messages=[
             {"role": "system", "content": _SYSTEM_PROMPT},

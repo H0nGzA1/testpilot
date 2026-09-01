@@ -263,7 +263,7 @@ async def execute_case(spec: CaseSpec, on_step=None, should_abort=None) -> Resul
 
             agent = Agent(
                 task=task,
-                llm=browser_use_llm(),
+                llm=await browser_use_llm(),
                 browser=browser,
                 register_new_step_callback=_step_cb,
                 extend_system_message=f"{_SCOPE_RULE}\n\n{_POPUP_RULE}",
@@ -366,7 +366,7 @@ async def capture_session(base_url: str, username: str, password: str) -> str:
             "If a first-login password change is forced, set a new valid password and continue. "
             "Finish only once you are on a logged-in page (no longer on the login screen)."
         )
-        agent = Agent(task=task, llm=browser_use_llm(), browser=browser)
+        agent = Agent(task=task, llm=await browser_use_llm(), browser=browser)
         await asyncio.wait_for(agent.run(max_steps=s.case_max_steps), timeout=s.case_timeout_s)
         # P2.5: never store a garbage bundle — if login didn't actually complete (agent still
         # on a login page), fail loudly so the caller falls back to prompt-login instead of

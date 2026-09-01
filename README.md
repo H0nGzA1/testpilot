@@ -24,10 +24,11 @@ The agent figures out the clicks; the judge reads the evidence and defaults to *
 - **Natural-language test cases** — project-scoped, reusable, tagged, Excel (.xlsx) import/export
 - **Real-browser execution** — one Chromium per case via [browser-use](https://github.com/browser-use/browser-use), with mp4 video, per-step screenshots, and a replayable action-history JSON
 - **LLM-as-judge** — pass/fail with a written reason; conservative by design (thin evidence ⇒ failed); infra errors are retried and flaky passes are marked, judge failures are not retried
+- **Bring your own model** — any OpenAI-compatible endpoint; base URL / key / models are configurable at runtime in **System settings** (no redeploy), with a separate optional agent model (e.g. a local VLM)
 - **Runs & reports** — concurrent execution with a global browser budget, live progress over SSE, per-case replay, re-run *only failed* or *only errored* cases, run comparison
 - **Environments & accounts** — per-project environments (test/staging/…), multiple login accounts with roles; session capture & reuse (cookies + localStorage + **sessionStorage** via CDP) so cases start logged in instead of burning steps on the login page
-- **Issue tracking** — built-in Kanban, optional **two-way GitLab issue sync** (status carried as scoped labels, last-writer-wins)
-- **Feishu (Lark) bot** — bind a project to a group chat, trigger runs by chatting, result cards, feedback messages become issues, optional Bitable sync
+- **Issue tracking** — built-in Kanban; optional **two-way GitLab issue sync** (off by default — `ENABLE_GITLAB=true`)
+- **Feishu (Lark) bot** — optional (off by default — `ENABLE_FEISHU=true`): bind a project to a group chat, trigger runs by chatting, result cards, feedback messages become issues, Bitable sync
 - **Multi-user** — optional login, shared workspace or per-project owner/editor/viewer roles, email invites
 - **Bilingual UI** — English / 简体中文
 

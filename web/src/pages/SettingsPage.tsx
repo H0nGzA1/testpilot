@@ -7,6 +7,7 @@ import { Badge, Button, Card, Field, Input } from "../components/ui";
 import { CredentialsSection } from "../components/CredentialsSection";
 import { GitLabSection } from "../components/GitLabSection";
 import { useToast } from "../components/toast";
+import { useAuth } from "../lib/auth";
 
 const THEME_MODES: ThemeMode[] = ["system", "light", "dark"];
 const THEME_LABEL: Record<ThemeMode, string> = { system: "System", light: "Light", dark: "Dark" };
@@ -14,6 +15,7 @@ const THEME_LABEL: Record<ThemeMode, string> = { system: "System", light: "Light
 export function SettingsPage() {
   const pid = Number(useParams().pid);
   const toast = useToast();
+  const { gitlabEnabled, feishuEnabled } = useAuth();
   const { t, i18n } = useTranslation();
   const lang = i18n.language;
   const [name, setName] = useState("");
@@ -242,6 +244,7 @@ export function SettingsPage() {
           </Button>
         </Card>
 
+        {feishuEnabled && (
         <Card className="space-y-3 p-4">
           <div>
             <div className="text-sm font-medium text-ink-900">{t("Feishu bot")}</div>
@@ -273,6 +276,7 @@ export function SettingsPage() {
             {savingFeishu ? t("Saving…") : t("Save changes")}
           </Button>
         </Card>
+        )}
 
         <Card className="space-y-3 p-4">
           <div>
@@ -428,7 +432,7 @@ export function SettingsPage() {
 
         <CredentialsSection pid={pid} roles={roles} envs={envs} onChanged={loadCreds} />
 
-        <GitLabSection pid={pid} />
+        {gitlabEnabled && <GitLabSection pid={pid} />}
       </div>
     </div>
   );

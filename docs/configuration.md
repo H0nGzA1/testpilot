@@ -10,9 +10,23 @@ Defaults shown are the code defaults from `app/config.py`.
 | `DATABASE_URL` | `sqlite+aiosqlite:///./testpilot.db` | SQLite for dev; use `postgresql+asyncpg://user:pass@host:5432/testpilot` in production. docker-compose wires this to the bundled Postgres automatically. |
 | `POSTGRES_PASSWORD` | `testpilot` | Only used by docker-compose to provision the bundled `db` service and build `DATABASE_URL`. |
 
+## Optional integrations
+
+Both are **off by default** — a plain install needs neither. Enabling one shows its
+settings UI and activates its endpoints/workers.
+
+| Variable | Default | Notes |
+|---|---|---|
+| `ENABLE_GITLAB` | `false` | Two-way GitLab issue sync (also needs `REDIS_URL` + the GitLab settings below). |
+| `ENABLE_FEISHU` | `false` | Feishu (Lark) bot + Bitable mirror. |
+
 ## LLM gateway
 
 Both the browser agent and the judge speak the OpenAI API. Any OpenAI-compatible endpoint works (OpenAI, a corporate gateway, vLLM/Ollama serving a VLM, …).
+
+The env values below are **defaults** — an admin can override base URL, API key, and
+models at runtime in **System settings → LLM model** (key stored encrypted; changes
+apply to new runs without a redeploy).
 
 | Variable | Default | Notes |
 |---|---|---|
@@ -53,7 +67,7 @@ Both the browser agent and the judge speak the OpenAI API. Any OpenAI-compatible
 
 ## GitLab issue sync (optional)
 
-Two-way sync between the built-in Kanban and a GitLab project. Disabled until `REDIS_URL` is set; without it issues stay local and creation never blocks.
+Two-way sync between the built-in Kanban and a GitLab project. Requires `ENABLE_GITLAB=true` **and** `REDIS_URL`; otherwise issues stay local and creation never blocks.
 
 | Variable | Default | Notes |
 |---|---|---|
@@ -87,7 +101,7 @@ Best-effort: a send failure is logged, never raised — an invite still returns 
 
 ## Feishu (Lark) bot (optional)
 
-Create a self-built app on the Feishu open platform, enable the long-connection (WebSocket) event mode, then either set these or configure them at runtime in **System settings** in the UI.
+Requires `ENABLE_FEISHU=true`. Create a self-built app on the Feishu open platform, enable the long-connection (WebSocket) event mode, then either set these or configure them at runtime in **System settings** in the UI.
 
 | Variable | Default | Notes |
 |---|---|---|

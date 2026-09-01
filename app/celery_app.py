@@ -109,7 +109,7 @@ def push_issue(issue_id: int) -> None:
 def enqueue_push(issue_id: int) -> None:
     """Fire-and-forget push enqueue used by the API. No-ops when sync is disabled and
     never raises — issue create/update must not depend on Celery/GitLab being up."""
-    if not _settings.redis_url:
+    if not (_settings.redis_url and _settings.enable_gitlab):
         return
     try:
         push_issue.delay(issue_id)
@@ -185,6 +185,8 @@ def scan_suite_reminders() -> int:
 
 @celery.task(name="app.celery_app.poll_all_projects")
 def poll_all_projects() -> int:
+    if not get_settings().enable_gitlab:
+        return 0
     from sqlalchemy import select
 
     from app.db import db_session

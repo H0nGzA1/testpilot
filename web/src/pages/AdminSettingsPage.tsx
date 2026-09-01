@@ -1,15 +1,25 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { api, type FeishuStatus } from "../lib/api";
+import { api, type FeishuStatus, type LlmStatus } from "../lib/api";
+import { useAuth } from "../lib/auth";
 import { Button, Card, Checkbox, Field, Input } from "../components/ui";
 import { useToast } from "../components/toast";
 
 export function AdminSettingsPage() {
   const { t } = useTranslation();
   const toast = useToast();
+  const { gitlabEnabled, feishuEnabled } = useAuth();
   const [tokenSet, setTokenSet] = useState(false);
   const [token, setToken] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // LLM model
+  const [llm, setLlm] = useState<LlmStatus | null>(null);
+  const [llmBaseUrl, setLlmBaseUrl] = useState("");
+  const [llmModel, setLlmModel] = useState("");
+  const [llmAgentModel, setLlmAgentModel] = useState("");
+  const [llmApiKey, setLlmApiKey] = useState("");
+  const [savingLlm, setSavingLlm] = useState(false);
 
   // Feishu
   const [fs, setFs] = useState<FeishuStatus | null>(null);
@@ -27,6 +37,10 @@ export function AdminSettingsPage() {
       .getAdminSettings()
       .then((s) => {
         setTokenSet(s.gitlab_token_set);
+        setLlm(s.llm);
+        setLlmBaseUrl(s.llm.base_url);
+        setLlmModel(s.llm.model);
+        setLlmAgentModel(s.llm.agent_model);
         setFs(s.feishu);
         setAppId(s.feishu.app_id);
         setApiBase(s.feishu.api_base);
@@ -37,6 +51,28 @@ export function AdminSettingsPage() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const saveLlm = async () => {
+    setSavingLlm(true);
+    try {
+      const r = await api.setLlmSettings({
+        base_url: llmBaseUrl.trim(),
+        model: llmModel.trim(),
+        agent_model: llmAgentModel.trim(),
+        api_key: llmApiKey.trim() || undefined,
+      });
+      setLlm(r);
+      setLlmBaseUrl(r.base_url);
+      setLlmModel(r.model);
+      setLlmAgentModel(r.agent_model);
+      setLlmApiKey("");
+      toast("success", t("Saved"));
+    } catch (e) {
+      toast("error", String(e));
+    } finally {
+      setSavingLlm(false);
+    }
+  };
 
   const save = async () => {
     setSaving(true);
@@ -82,6 +118,42 @@ export function AdminSettingsPage() {
 
       <Card className="max-w-2xl space-y-3 p-4">
         <div>
+          <div className="text-sm font-medium text-ink-900">{t("LLM model")}</div>
+          <div className="text-xs text-ink-500">
+            {t("The OpenAI-compatible endpoint and models behind the browser agent and the judge. Changes apply to new runs — no redeploy.")}
+          </div>
+        </div>
+        <Field label={t("Base URL (OpenAI-compatible)")}>
+          <Input value={llmBaseUrl} onChange={(e) => setLlmBaseUrl(e.target.value)}
+            placeholder="https://api.openai.com/v1" />
+        </Field>
+        <Field label={llm?.api_key_set ? t("API key (set — leave blank to keep)") : t("API key")}>
+          <Input type="password" value={llmApiKey} onChange={(e) => setLlmApiKey(e.target.value)}
+            placeholder={llm?.api_key_set ? "••••••••" : "sk-…"} />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={t("Model (judge + default)")}>
+            <Input value={llmModel} onChange={(e) => setLlmModel(e.target.value)} placeholder="gpt-4o" />
+          </Field>
+          <Field label={t("Agent model (optional — empty uses Model)")}>
+            <Input value={llmAgentModel} onChange={(e) => setLlmAgentModel(e.target.value)}
+              placeholder={t("e.g. a local VLM")} />
+          </Field>
+        </div>
+        <div className="flex items-center gap-3">
+          <Button onClick={saveLlm} disabled={savingLlm}>{savingLlm ? t("Saving…") : t("Save")}</Button>
+          <span className="text-xs text-ink-500">
+            {llm?.api_key_set ? t("API key is set.") : t("No API key set — the gateway may reject calls.")}
+          </span>
+        </div>
+        <p className="text-xs text-ink-500">
+          {t("The judge model needs vision (screenshots are evidence). Values here override .env; key stored encrypted.")}
+        </p>
+      </Card>
+
+      {gitlabEnabled && (
+      <Card className="max-w-2xl space-y-3 p-4">
+        <div>
           <div className="text-sm font-medium text-ink-900">{t("Global GitLab token")}</div>
           <div className="text-xs text-ink-500">
             {t("An api-scope token used for GitLab sync across all projects. Projects then only pick a GitLab project.")}
@@ -105,7 +177,9 @@ export function AdminSettingsPage() {
         </div>
         <p className="text-xs text-ink-500">{t("Stored encrypted; never returned. Enter it here — not in code.")}</p>
       </Card>
+      )}
 
+      {feishuEnabled && (
       <Card className="max-w-2xl space-y-3 p-4">
         <div>
           <div className="text-sm font-medium text-ink-900">{t("Feishu bot")}</div>
@@ -152,6 +226,7 @@ export function AdminSettingsPage() {
           {t("Secrets stored encrypted; never returned. Leave the Encrypt Key blank in the Feishu console.")}
         </p>
       </Card>
+      )}
     </div>
   );
 }

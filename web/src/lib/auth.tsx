@@ -6,6 +6,8 @@ type AuthState = {
   authEnabled: boolean;
   sharedWorkspace: boolean;
   publicBaseUrl: string;
+  gitlabEnabled: boolean;
+  feishuEnabled: boolean;
   user: AuthUser | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -23,15 +25,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authEnabled, setAuthEnabled] = useState(false);
   const [sharedWorkspace, setSharedWorkspace] = useState(true);
   const [publicBaseUrl, setPublicBaseUrl] = useState("");
+  const [gitlabEnabled, setGitlabEnabled] = useState(false);
+  const [feishuEnabled, setFeishuEnabled] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
 
   const refresh = async () => {
     const cfg = await api
       .config()
-      .catch(() => ({ auth_enabled: false, shared_workspace: true, public_base_url: "" }));
+      .catch(() => ({
+        auth_enabled: false,
+        shared_workspace: true,
+        public_base_url: "",
+        gitlab_enabled: false,
+        feishu_enabled: false,
+      }));
     setAuthEnabled(cfg.auth_enabled);
     setSharedWorkspace(cfg.shared_workspace);
     setPublicBaseUrl(cfg.public_base_url ?? "");
+    setGitlabEnabled(cfg.gitlab_enabled ?? false);
+    setFeishuEnabled(cfg.feishu_enabled ?? false);
     if (cfg.auth_enabled) setUser(await api.me().catch(() => null));
     else setUser(null);
   };
@@ -50,7 +62,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <Ctx.Provider
-      value={{ loading, authEnabled, sharedWorkspace, publicBaseUrl, user, login, logout, refresh }}
+      value={{
+        loading,
+        authEnabled,
+        sharedWorkspace,
+        publicBaseUrl,
+        gitlabEnabled,
+        feishuEnabled,
+        user,
+        login,
+        logout,
+        refresh,
+      }}
     >
       {children}
     </Ctx.Provider>

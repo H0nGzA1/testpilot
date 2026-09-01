@@ -52,6 +52,7 @@ from app.schemas import (
     IssueCommentIn,
     IssueIn,
     IssuePatch,
+    LlmSettingsIn,
     LoginIn,
     MemberIn,
     MemberPatch,
@@ -158,7 +159,16 @@ async def public_config() -> dict:
         "auth_enabled": s.auth_enabled,
         "shared_workspace": s.shared_workspace,
         "public_base_url": s.public_base_url,
+        # optional integrations — the SPA hides their UI when disabled
+        "gitlab_enabled": s.enable_gitlab,
+        "feishu_enabled": s.enable_feishu,
     }
+
+
+def _require_feature(enabled: bool, name: str) -> None:
+    """404 for endpoints of an integration this server has switched off."""
+    if not enabled:
+        raise HTTPException(404, f"{name} integration is disabled (see ENABLE_* in .env)")
 
 
 @public.post("/auth/login")
@@ -277,23 +287,59 @@ def _feishu_status(cfg: dict) -> dict:
     }
 
 
+def _llm_status(cfg) -> dict:
+    """Public-safe view of the effective LLM config (key shown only as a boolean)."""
+    return {
+        "base_url": cfg.base_url,
+        "model": cfg.model,
+        "agent_model": cfg.agent_model,
+        "api_key_set": bool(cfg.api_key),
+    }
+
+
 @router.get("/admin/settings", dependencies=[Depends(auth.require_admin)])
 async def get_admin_settings() -> dict:
+    from app.llm import llm_config
     from app.settings_store import GITLAB_TOKEN_KEY, has_setting
 
     async with db_session() as s:
         token_set = await has_setting(s, GITLAB_TOKEN_KEY)
         feishu_cfg = await feishu.resolve_config(s)
     return {
+        "llm": _llm_status(await llm_config()),
         "gitlab_token_set": token_set or bool(get_settings().gitlab_token),
         "feishu": _feishu_status(feishu_cfg),
     }
+
+
+@router.put("/admin/settings/llm", dependencies=[Depends(auth.require_admin)])
+async def set_admin_llm(body: LlmSettingsIn) -> dict:
+    """Set the platform's underlying model at runtime. Non-secret fields: None keeps,
+    "" clears the override (falls back to env). The API key is write-only."""
+    from app import llm as llm_mod
+    from app.settings_store import set_setting
+
+    async with db_session() as s:
+        for value, key in (
+            (body.base_url, llm_mod.LLM_BASE_URL_KEY),
+            (body.model, llm_mod.LLM_MODEL_KEY),
+            (body.agent_model, llm_mod.LLM_AGENT_MODEL_KEY),
+        ):
+            if value is not None:
+                await set_setting(s, key, value.strip(), secret=False)
+        if body.api_key:
+            if not secret_configured():
+                raise HTTPException(400, "TESTPILOT_SECRET_KEY not configured — cannot store key")
+            await set_setting(s, llm_mod.LLM_API_KEY_KEY, body.api_key.strip(), secret=True)
+    llm_mod.invalidate_llm_cache()
+    return _llm_status(await llm_mod.llm_config())
 
 
 @router.put("/admin/settings/gitlab-token", dependencies=[Depends(auth.require_admin)])
 async def set_admin_gitlab_token(body: GitlabTokenIn) -> dict:
     from app.settings_store import GITLAB_TOKEN_KEY, set_setting
 
+    _require_feature(get_settings().enable_gitlab, "GitLab")
     if body.token and not secret_configured():
         raise HTTPException(400, "TESTPILOT_SECRET_KEY not configured — cannot store token")
     async with db_session() as s:
@@ -305,6 +351,7 @@ async def set_admin_gitlab_token(body: GitlabTokenIn) -> dict:
 async def set_admin_feishu(body: FeishuSettingsIn) -> dict:
     from app.settings_store import set_setting
 
+    _require_feature(get_settings().enable_feishu, "Feishu")
     async with db_session() as s:
         if body.app_id is not None:
             await set_setting(s, "feishu_app_id", body.app_id.strip(), secret=False)
@@ -853,7 +900,7 @@ async def get_gitlab_config(pid: int, request: Request) -> dict:
             "gitlab_project": p.gitlab_project,
             "has_token": token is not None or has_global,
             "token_source": source,
-            "sync_enabled": bool(get_settings().redis_url),
+            "sync_enabled": bool(get_settings().redis_url and get_settings().enable_gitlab),
         }
 
 
@@ -861,6 +908,7 @@ async def get_gitlab_config(pid: int, request: Request) -> dict:
 async def list_gitlab_projects(pid: int, request: Request) -> list[dict]:
     """GitLab projects the token can access — populates the settings dropdown. Uses the
     project's token or the server-wide GITLAB_TOKEN; empty list if neither is set."""
+    _require_feature(get_settings().enable_gitlab, "GitLab")
     await _project_access(request, pid, "viewer")
     async with db_session() as s:
         await _get_project_or_404(s, pid)
@@ -881,6 +929,7 @@ async def list_gitlab_projects(pid: int, request: Request) -> list[dict]:
 
 @router.put("/projects/{pid}/gitlab")
 async def set_gitlab_config(pid: int, body: GitLabConfigIn, request: Request) -> dict:
+    _require_feature(get_settings().enable_gitlab, "GitLab")
     await _project_access(request, pid, "owner")
     """Map this project to a GitLab project and (optionally) store an encrypted token.
     An empty gitlab_project unlinks the project; the token is write-only (never returned)."""
@@ -931,7 +980,7 @@ async def set_gitlab_config(pid: int, body: GitLabConfigIn, request: Request) ->
             "gitlab_project": p.gitlab_project,
             "has_token": project_token or has_global,
             "token_source": source,
-            "sync_enabled": bool(get_settings().redis_url),
+            "sync_enabled": bool(get_settings().redis_url and get_settings().enable_gitlab),
         }
 
 
@@ -2178,6 +2227,7 @@ async def feishu_events(request: Request) -> dict:
     Handles the url_verification handshake and dispatches message events to a
     background worker, returning 200 immediately so Feishu doesn't retry (3s).
     """
+    _require_feature(get_settings().enable_feishu, "Feishu")
     body = await request.json()
     if "encrypt" in body:
         # Leave "Encrypt Key" blank in the Feishu console — decryption unsupported.

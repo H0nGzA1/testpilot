@@ -208,6 +208,15 @@ class GitlabTokenIn(BaseModel):
     token: str = ""  # "" clears the global token
 
 
+class LlmSettingsIn(BaseModel):
+    # Non-secret fields: None => leave unchanged; "" => clear the override (env fallback).
+    base_url: str | None = None
+    model: str | None = None
+    agent_model: str | None = None
+    # Secret: blank/None => keep the stored key; non-empty => replace.
+    api_key: str | None = None
+
+
 class FeishuSettingsIn(BaseModel):
     # Non-secret fields: None => leave unchanged; "" => clear.
     app_id: str | None = None

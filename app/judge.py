@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.config import get_settings
-from app.llm import openai_client
+from app.llm import llm_config, openai_client
 
 _SYSTEM = (
     "You are a strict QA judge for an automated browser test. "
@@ -87,11 +87,12 @@ async def judge(
     user = build_prompt(expected, final_answer, actions, task, evidence)
     s = get_settings()
     system = f'{_SYSTEM} Write the "reason" in {s.report_language}.'
-    client = openai_client()
+    cfg = await llm_config()
+    client = await openai_client()
 
     async def ask(content: Any) -> Verdict:
         resp = await client.chat.completions.create(
-            model=s.gateway_model,
+            model=cfg.model,
             messages=[{"role": "system", "content": system}, {"role": "user", "content": content}],
             temperature=0,
             response_format={"type": "json_object"},

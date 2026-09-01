@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     gateway_max_tokens: int = 16000  # completion cap for the browser agent's structured output
     report_language: str = "Chinese (简体中文)"  # language for agent reasoning + judge reason
 
+    # --- optional integrations (both OFF by default — a plain install needs neither) ---
+    # Flip via ENABLE_GITLAB / ENABLE_FEISHU. Off hides the UI and 404s the endpoints.
+    enable_gitlab: bool = False  # two-way GitLab issue sync
+    enable_feishu: bool = False  # Feishu (Lark) bot + Bitable mirror
+
     # Fernet key encrypting stored test credentials at rest (empty => credential API disabled)
     secret_key: str = Field(default="", validation_alias="TESTPILOT_SECRET_KEY")
 

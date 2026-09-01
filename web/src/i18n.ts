@@ -490,6 +490,19 @@ const zh: Record<string, string> = {
   Active: "启用中",
   "System settings": "系统设置",
   "Server-wide configuration (admin only).": "服务端全局配置（仅管理员可见）。",
+  "LLM model": "底层 LLM 模型",
+  "The OpenAI-compatible endpoint and models behind the browser agent and the judge. Changes apply to new runs — no redeploy.":
+    "浏览器 Agent 与裁判所使用的 OpenAI 兼容端点及模型。修改后对新的运行生效，无需重新部署。",
+  "Base URL (OpenAI-compatible)": "Base URL（OpenAI 兼容）",
+  "API key": "API 密钥",
+  "API key (set — leave blank to keep)": "API 密钥（已设置，留空保持不变）",
+  "Model (judge + default)": "模型（裁判 + 默认）",
+  "Agent model (optional — empty uses Model)": "Agent 模型（可选，留空复用上面的模型）",
+  "e.g. a local VLM": "如本地视觉模型",
+  "API key is set.": "API 密钥已设置。",
+  "No API key set — the gateway may reject calls.": "尚未设置 API 密钥，网关可能拒绝调用。",
+  "The judge model needs vision (screenshots are evidence). Values here override .env; key stored encrypted.":
+    "裁判模型需要视觉能力（截图是判定证据）。此处的值覆盖 .env；密钥加密存储。",
   "Global GitLab token": "全局 GitLab 令牌",
   "An api-scope token used for GitLab sync across all projects. Projects then only pick a GitLab project.":
     "用于全部项目 GitLab 同步的 api 权限令牌；配置后各项目只需选择对应的 GitLab 项目。",

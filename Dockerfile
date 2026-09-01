@@ -14,13 +14,16 @@
 ARG BASE_IMAGE=testpilot-base:latest
 ARG NODE_IMAGE=node:20-slim
 ARG APP_VERSION=dev
+# Optional npm registry mirror (e.g. https://registry.npmmirror.com) for networks
+# where npmjs.org is slow/unreachable. Empty => npm default.
+ARG NPM_REGISTRY=""
 
 # ---- stage 1: build the SPA ----
 FROM ${NODE_IMAGE} AS web
+ARG NPM_REGISTRY
 WORKDIR /web
-# Optionally point npm at a registry mirror, e.g.:
-#   ENV npm_config_registry=https://registry.npmmirror.com
-RUN npm install -g pnpm@9
+RUN if [ -n "$NPM_REGISTRY" ]; then npm config -g set registry "$NPM_REGISTRY"; fi \
+    && npm install -g pnpm@9
 COPY web/package.json web/pnpm-lock.yaml* ./
 RUN pnpm install --frozen-lockfile || pnpm install
 COPY web/ ./

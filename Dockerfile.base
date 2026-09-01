@@ -13,18 +13,34 @@
 # Build:  docker build -f Dockerfile.base -t testpilot-base:latest .
 # ============================================
 
-FROM python:3.11-slim
+# Mirror knobs for networks where the public defaults are slow or unreachable
+# (corporate registries, CN mirrors, air-gapped CI). All optional:
+#   --build-arg PYTHON_IMAGE=<registry>/python:3.11-slim
+#   --build-arg DEBIAN_MIRROR=mirrors.example.com          (replaces deb.debian.org)
+#   --build-arg PIP_INDEX_URL=https://pypi.example.com/simple
+#   --build-arg PIP_EXTRA_INDEX_URL=...
+#   --build-arg PLAYWRIGHT_DOWNLOAD_HOST=https://cdn.example.com/binaries/playwright
+ARG PYTHON_IMAGE=python:3.11-slim
+FROM ${PYTHON_IMAGE}
+
+ARG DEBIAN_MIRROR=""
+ARG PIP_INDEX_URL=""
+ARG PIP_EXTRA_INDEX_URL=""
+ARG PLAYWRIGHT_DOWNLOAD_HOST=""
 
 # uv + curl (curl is used by the compose healthcheck).
-RUN apt-get update \
+RUN if [ -n "$DEBIAN_MIRROR" ]; then \
+        sed -i "s/deb.debian.org/${DEBIAN_MIRROR}/g" /etc/apt/sources.list.d/debian.sources; \
+    fi \
+    && apt-get update \
     && apt-get install -y --no-install-recommends curl ca-certificates \
     && curl -LsSf https://astral.sh/uv/install.sh | sh \
     && rm -rf /var/lib/apt/lists/*
 
+# Empty PLAYWRIGHT_DOWNLOAD_HOST is falsy to playwright's installer => default CDN.
 ENV PATH="/root/.local/bin:$PATH" \
-    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-# On networks where the Playwright CDN is slow, set a mirror, e.g.:
-#   ENV PLAYWRIGHT_DOWNLOAD_HOST=https://cdn.npmmirror.com/binaries/playwright
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
+    PLAYWRIGHT_DOWNLOAD_HOST=${PLAYWRIGHT_DOWNLOAD_HOST}
 
 WORKDIR /app
 
@@ -32,7 +48,9 @@ WORKDIR /app
 # including browser-use[video] + playwright + celery/redis). Only pyproject is
 # copied, so app-code changes never invalidate this layer.
 COPY pyproject.toml ./
-RUN uv pip install --system --no-cache -r pyproject.toml
+RUN uv pip install --system --no-cache -r pyproject.toml \
+        ${PIP_INDEX_URL:+--index-url ${PIP_INDEX_URL}} \
+        ${PIP_EXTRA_INDEX_URL:+--extra-index-url ${PIP_EXTRA_INDEX_URL}}
 
 # Chromium + its OS dependencies, into a world-readable path so the non-root
 # runtime user can launch it. --with-deps installs the apt libs Chromium needs.

@@ -7,6 +7,7 @@ import {
   Layers,
   LayoutDashboard,
   LayoutGrid,
+  KeyRound,
   LogOut,
   MonitorDot,
   PlayCircle,
@@ -22,6 +23,7 @@ import { Link, useNavigate } from "react-router-dom";
 import type { AuthUser, Project } from "../lib/api";
 import { setLang } from "../i18n";
 import { useAuth } from "../lib/auth";
+import { ChangePasswordModal } from "./ChangePasswordModal";
 import { ACCENTS, accentSwatch, getAccent, getTheme, setAccent, setTheme, type Accent, type ThemeMode } from "../lib/theme";
 
 const SECTIONS = [
@@ -69,6 +71,7 @@ function AccountMenu({ user, collapsed }: { user: AuthUser; collapsed: boolean }
   const { logout } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [changingPw, setChangingPw] = useState(false);
   const [theme, setThemeState] = useState<ThemeMode>(getTheme);
   const [accent, setAccentState] = useState<Accent>(getAccent);
   const ref = useRef<HTMLDivElement>(null);
@@ -102,6 +105,7 @@ function AccountMenu({ user, collapsed }: { user: AuthUser; collapsed: boolean }
 
   return (
     <div ref={ref} className="relative">
+      {changingPw && <ChangePasswordModal onClose={() => setChangingPw(false)} />}
       {open && (
         <div
           className={clsx(
@@ -161,6 +165,15 @@ function AccountMenu({ user, collapsed }: { user: AuthUser; collapsed: boolean }
               ))}
             </div>
           </div>
+          <button
+            onClick={() => {
+              setOpen(false);
+              setChangingPw(true);
+            }}
+            className="flex w-full items-center gap-2.5 border-t border-[var(--line)] px-3.5 py-2.5 text-left text-[13px] text-ink-700 hover:bg-[var(--panel2)]"
+          >
+            <KeyRound className="h-4 w-4" /> {t("Change password")}
+          </button>
           <button
             onClick={async () => {
               await logout();

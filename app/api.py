@@ -7,6 +7,7 @@ import asyncio
 import csv
 import io
 import re
+import time
 from datetime import UTC, datetime, timedelta
 from typing import Any, NamedTuple
 
@@ -40,11 +41,13 @@ from app.models import (
     User,
 )
 from app.schemas import (
+    ChangePasswordIn,
     CredentialCaptureIn,
     CredentialIn,
     EnvironmentIn,
     EnvironmentPatch,
     FeishuSettingsIn,
+    ForgotIn,
     GitLabConfigIn,
     GitlabTokenIn,
     InviteAcceptIn,
@@ -58,6 +61,7 @@ from app.schemas import (
     MemberPatch,
     ProjectIn,
     ProjectPatch,
+    ResetIn,
     RolesIn,
     RunIn,
     RunPatch,
@@ -171,6 +175,16 @@ def _require_feature(enabled: bool, name: str) -> None:
         raise HTTPException(404, f"{name} integration is disabled (see ENABLE_* in .env)")
 
 
+def _set_session_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        auth.COOKIE_NAME,
+        token,
+        httponly=True,
+        samesite="lax",
+        max_age=get_settings().jwt_ttl_hours * 3600,
+    )
+
+
 @public.post("/auth/login")
 async def login(body: LoginIn, response: Response) -> dict:
     async with db_session() as s:
@@ -184,13 +198,7 @@ async def login(body: LoginIn, response: Response) -> dict:
         u.last_login_at = datetime.now(UTC)
         token = auth.create_session_token(u.id)
         payload = _user(u)
-    response.set_cookie(
-        auth.COOKIE_NAME,
-        token,
-        httponly=True,
-        samesite="lax",
-        max_age=get_settings().jwt_ttl_hours * 3600,
-    )
+    _set_session_cookie(response, token)
     return payload
 
 
@@ -221,6 +229,88 @@ async def set_onboarded(request: Request) -> dict:
         if row.onboarded_at is None:
             row.onboarded_at = datetime.now(UTC)
         return {"onboarded_at": _iso(row.onboarded_at)}
+
+
+# ---- password reset ----
+# ponytail: per-process throttle on "forgot password" so the endpoint can't be used to
+# mailbomb an address. Good enough with a handful of workers; move to Redis if it grows.
+_FORGOT_SENT_AT: dict[str, float] = {}
+FORGOT_MIN_INTERVAL_S = 60.0
+
+
+def _forgot_throttled(email: str) -> bool:
+    now = time.monotonic()
+    last = _FORGOT_SENT_AT.get(email)
+    if last is not None and now - last < FORGOT_MIN_INTERVAL_S:
+        return True
+    _FORGOT_SENT_AT[email] = now
+    return False
+
+
+def _reset_link(token: str) -> str:
+    base = get_settings().public_base_url.rstrip("/")
+    return f"{base}/reset/{token}" if base else f"/reset/{token}"
+
+
+async def _send_reset(info: dict) -> dict:
+    """Email a minted reset link. The link is returned either way, so an admin can hand
+    it over directly when the relay is unreachable (same shape as an invite)."""
+    subject, body = mailer.reset_email_body(info["link"], auth.RESET_TTL_HOURS)
+    return {**info, "emailed": await mailer.send_email(info["email"], subject, body)}
+
+
+@public.post("/auth/forgot")
+async def forgot_password(body: ForgotIn) -> dict:
+    """Email a reset link. Always {"ok": True} — the response must not reveal whether
+    an account exists for that address."""
+    email = body.email.strip().lower()
+    if _forgot_throttled(email):
+        return {"ok": True}
+    async with db_session() as s:
+        u = (await s.execute(select(User).where(User.email == email))).scalars().first()
+        info = (
+            {"email": u.email, "link": _reset_link(auth.create_reset_token(u))}
+            if (u and u.is_active)
+            else None
+        )
+    if info:  # SMTP outside the session — the relay can take seconds
+        await _send_reset(info)
+    return {"ok": True}
+
+
+@public.post("/auth/reset")
+async def reset_password(body: ResetIn, response: Response) -> dict:
+    """Consume a reset link: set the new password and sign the user straight in."""
+    claim = auth.decode_reset_token(body.token)
+    if claim is None:
+        raise HTTPException(400, "this reset link is invalid or has expired")
+    uid, fingerprint = claim
+    async with db_session() as s:
+        u = await s.get(User, uid)
+        if u is None or not u.is_active:
+            raise HTTPException(400, "this reset link is invalid or has expired")
+        if auth.pw_fingerprint(u.password_hash) != fingerprint:
+            raise HTTPException(400, "this reset link has already been used")
+        u.password_hash = auth.hash_password(body.password)
+        u.last_login_at = datetime.now(UTC)
+        token = auth.create_session_token(u.id)
+        payload = _user(u)
+    _set_session_cookie(response, token)
+    return payload
+
+
+@router.post("/auth/change-password")
+async def change_password(body: ChangePasswordIn, request: Request) -> dict:
+    """Change your own password (requires the current one)."""
+    me_user = await auth.current_user(request)
+    if me_user is None:
+        raise HTTPException(401, "authentication required")
+    async with db_session() as s:
+        u = await s.get(User, me_user.id)
+        if u is None or not auth.verify_password(body.old_password, u.password_hash):
+            raise HTTPException(400, "current password is incorrect")
+        u.password_hash = auth.hash_password(body.new_password)
+    return {"ok": True}
 
 
 # ---- admin: users + invites ----
@@ -261,6 +351,20 @@ async def invite_user(body: InviteIn, request: Request) -> dict:
     subject, mailbody = mailer.invite_email_body(inviter.email if inviter else "TestPilot", link)
     sent = await mailer.send_email(email, subject, mailbody)
     return {"email": email, "link": link, "emailed": sent}
+
+
+@router.post("/admin/users/{uid}/reset-password", dependencies=[Depends(auth.require_admin)])
+async def admin_reset_password(uid: int) -> dict:
+    """Send a locked-out user a reset link. Admins never see or set the password itself —
+    the link is single-use and expires, so it beats handing out a temporary one."""
+    async with db_session() as s:
+        u = await s.get(User, uid)
+        if u is None:
+            raise HTTPException(404, "user not found")
+        if not u.is_active:
+            raise HTTPException(400, "user is disabled — enable them first")
+        info = {"email": u.email, "link": _reset_link(auth.create_reset_token(u))}
+    return await _send_reset(info)
 
 
 @router.patch("/admin/users/{uid}", dependencies=[Depends(auth.require_admin)])
@@ -413,13 +517,7 @@ async def accept_invite(token: str, body: InviteAcceptIn, response: Response) ->
         inv.accepted_at = datetime.now(UTC)
         token_str = auth.create_session_token(u.id)
         payload = _user(u)
-    response.set_cookie(
-        auth.COOKIE_NAME,
-        token_str,
-        httponly=True,
-        samesite="lax",
-        max_age=get_settings().jwt_ttl_hours * 3600,
-    )
+    _set_session_cookie(response, token_str)
     return payload
 
 

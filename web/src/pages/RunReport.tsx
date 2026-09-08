@@ -39,7 +39,7 @@ const PRIORITY_STYLE: Record<string, string> = {
 function fmtDur(a: string | null | undefined, b: string | null | undefined): string | null {
   if (!a || !b) return null;
   const s = Math.max(0, Math.round((new Date(b).getTime() - new Date(a).getTime()) / 1000));
-  return s < 60 ? `${s}秒` : `${Math.floor(s / 60)}分${String(s % 60).padStart(2, "0")}秒`;
+  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m${String(s % 60).padStart(2, "0")}s`;
 }
 function fmtClock(iso: string | null | undefined): string {
   if (!iso) return "—";

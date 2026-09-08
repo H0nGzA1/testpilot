@@ -175,6 +175,20 @@ class LoginIn(BaseModel):
     password: str = Field(min_length=1)
 
 
+class ForgotIn(BaseModel):
+    email: str = Field(min_length=3, max_length=255)
+
+
+class ResetIn(BaseModel):
+    token: str = Field(min_length=1, max_length=1024)
+    password: str = Field(min_length=6)
+
+
+class ChangePasswordIn(BaseModel):
+    old_password: str = Field(min_length=1)
+    new_password: str = Field(min_length=6)
+
+
 ProjectRole = Literal["owner", "editor", "viewer"]
 
 

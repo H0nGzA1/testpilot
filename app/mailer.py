@@ -1,7 +1,7 @@
-"""System SMTP sender (invite emails). Sends from a
+"""System SMTP sender (invite + password-reset emails). Sends from a
 fixed system address via an SMTP relay (port 25, unauthenticated by default);
 SSL/STARTTLS/login stay config-gated for other deployments. Best-effort — a send
-failure is logged, never raised, so an invite still returns its copyable link."""
+failure is logged, never raised, so the caller still returns its copyable link."""
 
 from __future__ import annotations
 
@@ -45,8 +45,20 @@ async def send_email(to: str, subject: str, body: str) -> bool:
         await asyncio.to_thread(_send_sync, to, subject, body)
         return True
     except Exception:
-        log.warning("invite email to %s failed (relay unreachable?)", to, exc_info=True)
+        log.warning("email to %s failed (relay unreachable?)", to, exc_info=True)
         return False
+
+
+def reset_email_body(link: str, hours: int) -> tuple[str, str]:
+    subject = "TestPilot 密码重置 / Reset your TestPilot password"
+    body = (
+        f"我们收到了重置该 TestPilot 账号密码的请求。\n\n"
+        f"点击链接设置新密码(有效期 {hours} 小时，仅可使用一次):\n{link}\n\n"
+        f"如果不是你本人操作，忽略这封邮件即可，密码不会改变。\n\n"
+        f"Open the link to set a new TestPilot password (valid {hours}h, single use):\n{link}\n"
+        f"If you didn't request this, ignore this email — nothing changes.\n"
+    )
+    return subject, body
 
 
 def invite_email_body(inviter: str, link: str) -> tuple[str, str]:

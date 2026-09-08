@@ -6,6 +6,7 @@ and require_user() is a no-op, so auth can land before the login UI ships.
 
 from __future__ import annotations
 
+import hashlib
 import secrets
 from datetime import UTC, datetime, timedelta
 
@@ -18,6 +19,7 @@ from app.db import db_session
 from app.models import User
 
 COOKIE_NAME = "tp_session"
+RESET_TTL_HOURS = 2
 
 
 def _secret() -> str:
@@ -50,7 +52,43 @@ def create_session_token(user_id: int) -> str:
 def _decode(token: str) -> int | None:
     try:
         payload = jwt.decode(token, _secret(), algorithms=["HS256"])
+        # Non-session tokens (password resets) are signed with the same secret — refuse
+        # them here, or a reset link pasted into the cookie would be a free login.
+        if payload.get("typ"):
+            return None
         return int(payload["sub"])
+    except (jwt.InvalidTokenError, KeyError, ValueError):
+        return None
+
+
+def pw_fingerprint(password_hash: str | None) -> str:
+    """Short digest of the stored hash. A reset token carries the fingerprint of the
+    password it was issued against, so the first use — which changes the hash — burns
+    that token and every other outstanding one. Single-use without a tokens table."""
+    return hashlib.sha256((password_hash or "").encode()).hexdigest()[:16]
+
+
+def create_reset_token(user: User) -> str:
+    exp = datetime.now(UTC) + timedelta(hours=RESET_TTL_HOURS)
+    return jwt.encode(
+        {
+            "sub": str(user.id),
+            "typ": "pwreset",
+            "pwf": pw_fingerprint(user.password_hash),
+            "exp": exp,
+        },
+        _secret(),
+        algorithm="HS256",
+    )
+
+
+def decode_reset_token(token: str) -> tuple[int, str] | None:
+    """(user_id, password fingerprint) for a valid, unexpired reset token, else None."""
+    try:
+        payload = jwt.decode(token, _secret(), algorithms=["HS256"])
+        if payload.get("typ") != "pwreset":
+            return None
+        return int(payload["sub"]), str(payload["pwf"])
     except (jwt.InvalidTokenError, KeyError, ValueError):
         return None
 

@@ -1,8 +1,21 @@
+<div align="center">
+
 # TestPilot
 
-**Agentic end-to-end testing platform** — write test cases in plain natural language, let a browser agent execute them in a real Chrome, and let an LLM judge decide pass/fail with evidence (video, screenshots, action trace).
+**Agentic end-to-end testing** — write test cases in plain natural language, let a browser
+agent execute them in a real Chrome, and let an LLM judge decide pass/fail with evidence.
 
-[中文文档 / Chinese README](./README.zh-CN.md)
+[![CI](https://github.com/H0nGzA1/testpilot/actions/workflows/ci.yml/badge.svg)](https://github.com/H0nGzA1/testpilot/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
+[![Node 20](https://img.shields.io/badge/node-20-339933.svg)](web/package.json)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
+English · [简体中文](./README.zh-CN.md)
+
+<img src="docs/screenshots/run-report.png" alt="Run report — pass/fail per case with the judge's written verdict" width="900">
+
+</div>
 
 ```
 natural-language case ──▶ browser agent (browser-use → Playwright/CDP → Chromium)
@@ -18,6 +31,20 @@ Traditional E2E suites (Playwright/Cypress scripts) break every time a selector 
 > "Log in as the reviewer role, open the pending-approval list, approve the first entry, and verify its status changes to Approved."
 
 The agent figures out the clicks; the judge reads the evidence and defaults to **failed** when the evidence is thin — no flaky green.
+
+## Screenshots
+
+| Test cases — plain-language, grouped by module | Runs — live progress over SSE |
+| :---: | :---: |
+| ![Test cases](docs/screenshots/cases.png) | ![Runs](docs/screenshots/runs.png) |
+
+| **Replay — video, judge verdict, step-by-step agent trace** | **Project overview — pass-rate trend & top failing cases** |
+| :---: | :---: |
+| ![Replay](docs/screenshots/replay.png) | ![Overview](docs/screenshots/overview.png) |
+
+| **Issue kanban — failed cases become tracked issues** | **Runtime LLM settings — bring your own model, no redeploy** |
+| :---: | :---: |
+| ![Issues](docs/screenshots/issues.png) | ![LLM settings](docs/screenshots/settings-llm.png) |
 
 ## Features
 

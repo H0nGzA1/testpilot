@@ -164,7 +164,9 @@ export interface CaseResult {
 
 export function relTime(iso: string | null | undefined): string {
   if (!iso) return "";
-  const s = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
+  // API timestamps are UTC; treat tz-less ISO strings as UTC, not local time.
+  const utc = /Z$|[+-]\d{2}:\d{2}$/.test(iso) ? iso : iso + "Z";
+  const s = Math.round((Date.now() - new Date(utc).getTime()) / 1000);
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const t = i18n.t.bind(i18n);
   if (s < 60) return t("just now");
@@ -482,6 +484,12 @@ export const api = {
     req<{ email: string; is_admin: boolean; project_id: number | null }>(`/invite/${token}`),
   acceptInvite: (token: string, b: { name: string; password: string }) =>
     req<AuthUser>(`/invite/${token}/accept`, { method: "POST", body: JSON.stringify(b) }),
+  forgotPassword: (email: string) =>
+    req<{ ok: boolean }>("/auth/forgot", { method: "POST", body: JSON.stringify({ email }) }),
+  resetPassword: (token: string, password: string) =>
+    req<AuthUser>("/auth/reset", { method: "POST", body: JSON.stringify({ token, password }) }),
+  changePassword: (b: { old_password: string; new_password: string }) =>
+    req<{ ok: boolean }>("/auth/change-password", { method: "POST", body: JSON.stringify(b) }),
 
   // --- admin ---
   listUsers: () => req<AdminUser[]>("/admin/users"),
@@ -489,6 +497,10 @@ export const api = {
     req<{ email: string; link: string; emailed: boolean }>("/admin/users/invite", {
       method: "POST",
       body: JSON.stringify(b),
+    }),
+  resetUserPassword: (uid: number) =>
+    req<{ email: string; link: string; emailed: boolean }>(`/admin/users/${uid}/reset-password`, {
+      method: "POST",
     }),
   updateUser: (uid: number, b: { is_active?: boolean; is_admin?: boolean }) =>
     req<AdminUser>(`/admin/users/${uid}`, { method: "PATCH", body: JSON.stringify(b) }),

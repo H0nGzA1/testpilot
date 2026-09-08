@@ -45,6 +45,21 @@ export function AdminUsersPage() {
     }
   };
 
+  // Safe to fire without a confirm step: the old password keeps working until the user
+  // actually opens the link.
+  const resetPassword = async (u: AdminUser) => {
+    try {
+      const r = await api.resetUserPassword(u.id);
+      setLastLink(new URL(r.link, window.location.origin).href);
+      toast(
+        "success",
+        r.emailed ? t("Reset link emailed to {{e}}", { e: r.email }) : t("Reset link created — copy it below"),
+      );
+    } catch (e) {
+      toast("error", String(e));
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -83,7 +98,7 @@ export function AdminUsersPage() {
         </div>
         {lastLink && (
           <div className="rounded-lg bg-[var(--panel2)] px-3 py-2 text-xs text-ink-700">
-            {t("Invite link:")}{" "}
+            {t("Link (copy it if the email doesn't arrive):")}{" "}
             <a href={lastLink} className="break-all text-brand-700 hover:underline">{lastLink}</a>
           </div>
         )}
@@ -113,6 +128,9 @@ export function AdminUsersPage() {
                 </td>
                 <td className="px-4 py-2 text-right">
                   <div className="flex justify-end gap-1">
+                    <Button size="sm" variant="outline" disabled={!u.is_active} onClick={() => resetPassword(u)}>
+                      {t("Reset password")}
+                    </Button>
                     <Button size="sm" variant="outline"
                       onClick={() => api.updateUser(u.id, { is_admin: !u.is_admin }).then(load).catch((e) => toast("error", String(e)))}>
                       {u.is_admin ? t("Revoke admin") : t("Make admin")}

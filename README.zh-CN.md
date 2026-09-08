@@ -1,8 +1,21 @@
+<div align="center">
+
 # TestPilot
 
-**Agent 化的端到端测试平台** —— 用自然语言写测试用例，浏览器 Agent 在真实 Chrome 里执行，LLM 裁判根据证据（录像、截图、操作轨迹）判定通过/失败。
+**Agent 化的端到端测试平台** —— 用自然语言写测试用例，浏览器 Agent 在真实 Chrome 里执行，
+LLM 裁判根据证据（录像、截图、操作轨迹）判定通过/失败。
 
-[English README](./README.md)
+[![CI](https://github.com/H0nGzA1/testpilot/actions/workflows/ci.yml/badge.svg)](https://github.com/H0nGzA1/testpilot/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
+[![Node 20](https://img.shields.io/badge/node-20-339933.svg)](web/package.json)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
+[English](./README.md) · 简体中文
+
+<img src="docs/screenshots/run-report.png" alt="运行报告 —— 逐用例判定 + 裁判书面理由" width="900">
+
+</div>
 
 ```
 自然语言用例 ──▶ 浏览器 Agent（browser-use → Playwright/CDP → Chromium）
@@ -18,6 +31,20 @@
 > "以审核员角色登录，打开待审批列表，通过第一条记录，并验证其状态变为已通过。"
 
 点击路径由 Agent 自己找；裁判读证据下结论，证据不足时**默认判失败**——不给虚假的绿色。
+
+## 界面截图
+
+| 测试用例 —— 大白话描述，按模块分组 | 运行列表 —— SSE 实时进度 |
+| :---: | :---: |
+| ![测试用例](docs/screenshots/cases.png) | ![运行列表](docs/screenshots/runs.png) |
+
+| **回放 —— 录像、裁判结论、Agent 逐步轨迹** | **项目总览 —— 通过率趋势与高频失败用例** |
+| :---: | :---: |
+| ![回放](docs/screenshots/replay.png) | ![总览](docs/screenshots/overview.png) |
+
+| **问题看板 —— 失败用例一键转 issue 跟踪** | **运行时 LLM 设置 —— 换模型无需重新部署** |
+| :---: | :---: |
+| ![问题看板](docs/screenshots/issues.png) | ![LLM 设置](docs/screenshots/settings-llm.png) |
 
 ## 功能
 

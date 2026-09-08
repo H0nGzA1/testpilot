@@ -7,26 +7,26 @@ import { Modal } from "../components/Modal";
 import { useToast } from "../components/toast";
 
 // ── date bucketing (grouping key + display order) ──────────────────────────────
-const BUCKET_ORDER = ["今天", "昨天", "本周", "更早"] as const;
+const BUCKET_ORDER = ["Today", "Yesterday", "This week", "Earlier"] as const;
 function startOfDay(d: Date): number {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 }
 function bucketOf(iso: string | null | undefined, now: Date): string {
-  if (!iso) return "更早";
+  if (!iso) return "Earlier";
   const t = startOfDay(new Date(iso));
   const today = startOfDay(now);
   const day = 86_400_000;
-  if (t === today) return "今天";
-  if (t === today - day) return "昨天";
-  if (t > today - 7 * day) return "本周";
-  return "更早";
+  if (t === today) return "Today";
+  if (t === today - day) return "Yesterday";
+  if (t > today - 7 * day) return "This week";
+  return "Earlier";
 }
 function fmtDuration(run: Run): string {
   if (!run.started_at || !run.finished_at) return "—";
   const ms = new Date(run.finished_at).getTime() - new Date(run.started_at).getTime();
   const s = Math.max(0, Math.round(ms / 1000));
-  if (s < 60) return `${s}秒`;
-  return `${Math.floor(s / 60)}分${String(s % 60).padStart(2, "0")}秒`;
+  if (s < 60) return `${s}s`;
+  return `${Math.floor(s / 60)}m${String(s % 60).padStart(2, "0")}s`;
 }
 
 /** Cases in this run worth re-running: everything the judge didn't pass, plus anything
@@ -89,7 +89,7 @@ export function RunsPage() {
       .map((r) => new Date(r.finished_at as string).getTime() - new Date(r.started_at as string).getTime());
     const avgMs = durs.length ? durs.reduce((a, b) => a + b, 0) / durs.length : 0;
     const s = Math.round(avgMs / 1000);
-    const avgDur = durs.length ? (s < 60 ? `${s}秒` : `${Math.floor(s / 60)}分${String(s % 60).padStart(2, "0")}秒`) : "—";
+    const avgDur = durs.length ? (s < 60 ? `${s}s` : `${Math.floor(s / 60)}m${String(s % 60).padStart(2, "0")}s`) : "—";
     const enabled = cases.filter((c) => c.enabled);
     const ran = enabled.filter((c) => c.last_status);
     return {

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
+import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
 const FONTS_HREF =
@@ -41,6 +42,9 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  // the same card flips to "forgot password" rather than routing to a second page
+  const [forgot, setForgot] = useState(false);
+  const [sent, setSent] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
   useLoginAssets();
@@ -56,6 +60,20 @@ export function LoginPage() {
       setErr(t("Incorrect email or password"));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const submitForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErr("");
+    setBusy(true);
+    try {
+      await api.forgotPassword(email.trim());
+    } catch {
+      // the endpoint answers the same either way; a network blip shouldn't hint otherwise
+    } finally {
+      setBusy(false);
+      setSent(true); // deliberately unconditional: never reveal whether the account exists
     }
   };
 
@@ -107,32 +125,68 @@ export function LoginPage() {
 
           <div className="tp-right">
             <div className="tp-card" ref={cardRef} onPointerMove={onMove}>
-              <div className="tp-panel-eyebrow">Sign in</div>
-              <div className="tp-panel-title">{t("Sign in to continue")}</div>
-              <form onSubmit={submit}>
-                <label className="tp-label">{t("Email")}</label>
-                <input
-                  className="tp-inp"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  autoFocus
-                />
-                <div className="tp-gap" />
-                <label className="tp-label">{t("Password")}</label>
-                <input
-                  className="tp-inp"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                />
-                {err && <div className="tp-err">{err}</div>}
-                <button className="tp-btn" type="submit" disabled={busy}>
-                  {busy ? t("Signing in…") : t("Sign in")}
-                </button>
-              </form>
+              <div className="tp-panel-eyebrow">{forgot ? "Reset" : "Sign in"}</div>
+              <div className="tp-panel-title">
+                {forgot ? t("Reset your password") : t("Sign in to continue")}
+              </div>
+              {forgot ? (
+                sent ? (
+                  <>
+                    <p className="tp-note">
+                      {t("If an account exists for that address, a reset link is on its way. The link is valid for 2 hours.")}
+                    </p>
+                    <button className="tp-btn" type="button" onClick={() => { setForgot(false); setSent(false); }}>
+                      {t("Back to sign in")}
+                    </button>
+                  </>
+                ) : (
+                  <form onSubmit={submitForgot}>
+                    <label className="tp-label">{t("Email")}</label>
+                    <input
+                      className="tp-inp"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="you@example.com"
+                      autoFocus
+                    />
+                    <button className="tp-btn" type="submit" disabled={busy || !email.trim()}>
+                      {busy ? t("Sending…") : t("Email me a reset link")}
+                    </button>
+                    <button className="tp-link" type="button" onClick={() => setForgot(false)}>
+                      {t("Back to sign in")}
+                    </button>
+                  </form>
+                )
+              ) : (
+                <form onSubmit={submit}>
+                  <label className="tp-label">{t("Email")}</label>
+                  <input
+                    className="tp-inp"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    autoFocus
+                  />
+                  <div className="tp-gap" />
+                  <label className="tp-label">{t("Password")}</label>
+                  <input
+                    className="tp-inp"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                  />
+                  {err && <div className="tp-err">{err}</div>}
+                  <button className="tp-btn" type="submit" disabled={busy}>
+                    {busy ? t("Signing in…") : t("Sign in")}
+                  </button>
+                  <button className="tp-link" type="button" onClick={() => { setErr(""); setForgot(true); }}>
+                    {t("Forgot your password?")}
+                  </button>
+                </form>
+              )}
               <p className="tp-foot">
                 {t("Need access? Contact a system administrator to provision your account.")}
               </p>
@@ -202,6 +256,10 @@ const CSS = `
  font-weight:600;font-family:Inter,sans-serif;letter-spacing:.01em;cursor:pointer;transition:.35s var(--ease);box-shadow:0 0 0 rgba(16,185,129,0)}
 .tp-btn:hover:not(:disabled){background:#fff;transform:translateY(-1px);box-shadow:0 0 34px rgba(16,185,129,.4)}
 .tp-btn:disabled{opacity:.6;cursor:default}
+.tp-link{display:block;width:100%;margin-top:14px;background:none;border:0;cursor:pointer;font-family:Inter,sans-serif;
+ font-size:12.5px;color:rgba(235,235,235,.5);transition:color .25s var(--ease)}
+.tp-link:hover{color:var(--emerald)}
+.tp-note{font-size:13.5px;line-height:1.65;color:rgba(235,235,235,.58)}
 .tp-foot{margin-top:20px;font-family:"Space Grotesk",monospace;font-size:11px;letter-spacing:.03em;color:rgba(235,235,235,.32);text-align:center}
 @media(max-width:920px){
  .tp-topbar{padding:20px 24px}

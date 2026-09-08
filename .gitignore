@@ -19,3 +19,4 @@ web/tsconfig.tsbuildinfo
 *.png
 # but keep app icons served by the web app
 !web/public/*.png
+!docs/screenshots/*.png

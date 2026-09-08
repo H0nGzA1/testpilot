@@ -17,6 +17,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { MembersPage } from "./pages/MembersPage";
 import { OverviewPage } from "./pages/OverviewPage";
 import { Projects } from "./pages/Projects";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { RunReport } from "./pages/RunReport";
 import { RunsPage } from "./pages/RunsPage";
 import { SuitesPage } from "./pages/SuitesPage";
@@ -40,6 +41,7 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
 const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
   { path: "/invite/:token", element: <InvitePage /> },
+  { path: "/reset/:token", element: <ResetPasswordPage /> },
   {
     element: (
       <RequireAuth>
